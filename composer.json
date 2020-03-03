@@ -1,0 +1,30 @@
+{
+    "name": "richerdyoung/composer-test",
+    "description": "composer",
+    "type": "project",
+    "keywords": [
+        "framework",
+        "thinkphp",
+        "ORM"
+    ],
+    "homepage": "http://thinkphp.cn/",
+    "require": {
+        "php": ">=7.1.0"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "John laofan",
+            "email": "john@example.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload":{
+        "psr-4":{ 
+            "src\\" :  "src/"
+        }
+    }
+
+
+
+}
