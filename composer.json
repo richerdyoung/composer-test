@@ -1,7 +1,7 @@
 {
     "name": "richerdyoung/composer-test",
     "description": "composer",
-    "type": "project",
+    "type": "library",
     "keywords": [
         "framework",
         "thinkphp",
