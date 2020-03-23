@@ -1,2 +1,2 @@
 # composer-test
-composer
+composer   require  richerdyoung/composer-test
