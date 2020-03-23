@@ -5,11 +5,14 @@
     "keywords": [
         "framework",
         "thinkphp",
-        "ORM"
+        "ORM",
+        "tpcms",
+        "cms"
     ],
     "homepage": "http://thinkphp.cn/",
     "require": {
-        "php": ">=7.1.0"
+        "php": ">=7.1.0",
+        "topthink/think-orm": "^2.0"
     },
     "license": "MIT",
     "authors": [
@@ -21,7 +24,7 @@
     "minimum-stability": "dev",
     "autoload":{
         "psr-4":{ 
-            "src\\" :  "src/"
+            "tpcms\\" :  "src/"
         }
     }
 
