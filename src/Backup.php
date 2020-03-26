@@ -5,8 +5,8 @@
 // +----------------------------------------------------------------------
 namespace tpcms;
 
-use think\Db;
-use think\Config;
+use think\facade\Db;
+use think\facade\Config;
 
 class Backup{
 
@@ -38,7 +38,7 @@ class Backup{
      * @var integer
      */
     private $config = array(
-        'path' => './Data/', //数据库备份路径
+        'path' => './BackupData/', //数据库备份路径
         'part' => 20971520, //数据库备份卷大小
         'compress' => 0, //数据库备份文件是否启用压缩 0不压缩 1 压缩
         'level' => 9, //数据库备份文件压缩级别 1普通 4 一般  9最高
@@ -60,6 +60,8 @@ class Backup{
             throw new \Exception("The current directory is not writable");
         }
     }
+
+
     /**
      * 设置脚本运行超时时间
      * 0表示不限制，支持连贯操作
@@ -71,6 +73,8 @@ class Backup{
         }
         return $this;
     }
+
+
     /**
      * 设置数据库连接必备参数
      * @param array  $dbconfig   数据库连接配置信息
@@ -85,31 +89,44 @@ class Backup{
         }
         return $this;
     }
-    /**
-     * 设置备份文件名
-     * @param Array  $file  文件名字
-     * @return object 
-     */
-    public function setFile($file = null)
-    {
-        if (is_null($file)) {
-            $this->file = ['name' => date('Ymd-His'), 'part' => 1];
-        } else {
-            if (!array_key_exists("name", $file) && !array_key_exists("part", $file)) {
-                $this->file = $file['1'];
-            } else {
-                $this->file = $file;
-            }
-        }
-        return $this;
-    }
+
+
+
+
     //数据类连接
     public static function connect()
     {
         return Db::connect();
     }
-    //数据库表列表
-    public function dataList($table = null,$type=1)
+
+
+
+    /***
+     * (
+            [name] => tpcms_admin
+            [engine] => InnoDB
+            [version] => 10
+            [row_format] => Dynamic
+            [rows] => 2
+            [avg_row_length] => 8192
+            [data_length] => 16384
+            [max_data_length] => 0
+            [index_length] => 16384
+            [data_free] => 0
+            [auto_increment] => 8
+            [create_time] => 2020-03-08 19:20:18
+            [update_time] => 2020-03-16 18:33:39
+            [check_time] => 
+            [collation] => utf8mb4_general_ci
+            [checksum] => 
+            [create_options] => row_format=DYNAMIC
+            [comment] => 
+        )
+     */
+    /***
+     * 数据库表列表
+     */
+    public function DataList($table = null,$type=1)
     {
         $db = self::connect();
         if (is_null($table)) {
@@ -122,86 +139,47 @@ class Backup{
             }
         }
         return array_map('array_change_key_case', $list);
-        //$list;
     }
-    //数据库备份文件列表
-    public function fileList()
+
+
+    /***
+     * 备份文件列表
+     * 
+     * file_name_path : 文件完整路径
+     * file_name : 文件名称
+     * create_time ： 文件的创建时间
+     * file_size： 文件大小
+     */
+    public function FileList()
     {
         if (!is_dir($this->config['path'])) {
-            mkdir($this->config['path'], 0755, true);
+            mkdir($this->config['path'], 0777, true);
         }
         $path = realpath($this->config['path']);
-        $flag = \FilesystemIterator::KEY_AS_FILENAME;
-        $glob = new \FilesystemIterator($path, $flag);
+        //迭代器遍历目录 :https://www.php.net/manual/zh/class.filesystemiterator.php 
+        $glob = new \FilesystemIterator($path); 
         $list = array();
-        foreach ($glob as $name => $file) {
-            if (preg_match('/^\\d{8,8}-\\d{6,6}-\\d+\\.sql(?:\\.gz)?$/', $name)) {
-                $name = sscanf($name, '%4s%2s%2s-%2s%2s%2s-%d');
-                $date = "{$name[0]}-{$name[1]}-{$name[2]}";
-                $time = "{$name[3]}:{$name[4]}:{$name[5]}";
-                $part = $name[6];
-                if (isset($list["{$date} {$time}"])) {
-                    $info = $list["{$date} {$time}"];
-                    $info['part'] = max($info['part'], $part);
-                    $info['size'] = $info['size'] + $file->getSize();
-                } else {
-                    $info['part'] = $part;
-                    $info['size'] = $file->getSize();
-                }
-                $extension = strtoupper(pathinfo($file->getFilename(), PATHINFO_EXTENSION));
-                $info['compress'] = $extension === 'SQL' ? '-' : $extension;
-                $info['time'] = strtotime("{$date} {$time}");
-                $list["{$date} {$time}"] = $info;
-            }
+        $i = 0;
+        while ($glob->valid()) { 
+            // $glob->valid() 检测迭代器是否到底了
+            $file_name_path = $path.'/'.$glob->getFilename();
+            $list[$i]['file_name_path'] = $file_name_path;
+            $list[$i]['file_name'] =  $glob->getFilename();
+            $list[$i]['create_time'] = $glob->getCTime();
+            $list[$i]['file_size'] = filesize($file_name_path);
+            $glob->next();  // 游标往后移动
+            $i++;
         }
         return $list;
     }
-    public function getFile($type = '', $time = 0)
-    {
-        //
-        if (!is_numeric($time)) {
-            throw new \Exception("{$time} Illegal data type");
-        }
-        switch ($type) {
-            case 'time':
-                $name = date('Ymd-His', $time) . '-*.sql*';
-                $path = realpath($this->config['path']) . DIRECTORY_SEPARATOR . $name;
-                return glob($path);
-                break;
-            case 'timeverif':
-                $name = date('Ymd-His', $time) . '-*.sql*';
-                $path = realpath($this->config['path']) . DIRECTORY_SEPARATOR . $name;
-                $files = glob($path);
-                $list = array();
-                foreach ($files as $name) {
-                    $basename = basename($name);
-                    $match = sscanf($basename, '%4s%2s%2s-%2s%2s%2s-%d');
-                    $gz = preg_match('/^\\d{8,8}-\\d{6,6}-\\d+\\.sql.gz$/', $basename);
-                    $list[$match[6]] = array($match[6], $name, $gz);
-                }
-                $last = end($list);
-                if (count($list) === $last[0]) {
-                    return $list;
-                } else {
-                    throw new \Exception("File {$files['0']} may be damaged, please check again");
-                }
-                break;
-            case 'pathname':
-                return "{$this->config['path']}{$this->file['name']}-{$this->file['part']}.sql";
-                break;
-            case 'filename':
-                return "{$this->file['name']}-{$this->file['part']}.sql";
-                break;
-            case 'filepath':
-                return $this->config['path'];
-                break;
-            default:
-                $arr = array('pathname' => "{$this->config['path']}{$this->file['name']}-{$this->file['part']}.sql", 'filename' => "{$this->file['name']}-{$this->file['part']}.sql", 'filepath' => $this->config['path'], 'file' => $this->file);
-                return $arr;
-        }
-    }
-    //删除备份文件
-    public function delFile($time)
+
+
+
+    /***
+     * 删除备份文件
+     * 
+     */
+    public function FileDel($filename)
     {
         if ($time) {
             $file = $this->getFile('time', $time);
@@ -215,32 +193,52 @@ class Backup{
             throw new \Exception("{$time} Time parameter is incorrect");
         }
     }
+
+
+
     /**
      * 下载备份
-     * @Author: 浪哥 <939881475@qq.com>
      * @param string $time
-     * @param integer $part
      * @return array|mixed|string
      */
-    public function downloadFile($time, $part = 0)
+    public function FileDownload($filename)
     {
-        $file = $this->getFile('time', $time);
-        $fileName = $file[$part];
-        if (file_exists($fileName)) {
-            ob_end_clean();
-            header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-            header('Content-Description: File Transfer');
-            header('Content-Type: application/octet-stream');
-            header('Content-Length: ' . filesize($fileName));
-            header('Content-Disposition: attachment; filename=' . basename($fileName));
-            readfile($fileName);
+        $path = realpath($this->config['path']);
+        $fileNamePath = $path.'/'.$filename;
+        if (file_exists($fileNamePath)) {
+            //以只读和二进制模式打开文件   
+            $file = fopen ( $fileNamePath, "rb" ); 
+            //告诉浏览器这是一个文件流格式的文件    
+            Header ( "Content-type: application/octet-stream;charset=utf-8 " ); 
+            //请求范围的度量单位  
+            Header ( "Accept-Ranges: bytes" );  
+            //Content-Length是指定包含于请求或响应中数据的字节长度    
+            Header ( "Accept-Length: " . filesize ( $fileNamePath ) );  
+            //用来告诉浏览器，文件是可以当做附件被下载，下载后的文件名称为$file_name该变量的值。
+            Header ( "Content-Disposition: attachment; filename=" . $filename );    
+            //读取文件内容并直接输出到浏览器
+            while (!feof($file)) {
+                //从文件指针 handle 读取最多 length 个字节（每次输出10k）
+                echo fread($file, 10240);
+                ob_flush();
+                flush();
+            }
+            fclose ( $file ); //打开的时候要进行关闭这个文件
+            
+            return true;
         } else {
-            throw new \Exception("{$time} File is abnormal");
+            return false;
         }
     }
+
+
+    /***
+     * 
+     * 导入数据
+     * 
+     */
     public function import($start)
     {
-        //还原数据
         $db = self::connect();
         if ($this->config['compress']) {
             $gz = gzopen($this->file[1], 'r');
@@ -268,6 +266,8 @@ class Backup{
         }
         return array($start, $size);
     }
+
+
     /**
      * 写入初始数据
      * @return boolean true - 写入成功，false - 写入失败
@@ -275,7 +275,7 @@ class Backup{
     public function Backup_Init()
     {
         $sql = "-- -----------------------------\n";
-        $sql .= "-- Think MySQL Data Transfer \n";
+        $sql .= "-- MySQL Data Transfer \n";
         $sql .= "-- \n";
         $sql .= "-- Host     : " . $this->dbconfig['hostname'] . "\n";
         $sql .= "-- Port     : " . $this->dbconfig['hostport'] . "\n";
@@ -287,15 +287,39 @@ class Backup{
         $sql .= "SET FOREIGN_KEY_CHECKS = 0;\n\n";
         return $this->write($sql);
     }
+
+    
+    
+    /**
+     * 设置备份文件名
+     * @param Array  $file  文件名字
+     * @return object 
+     */
+    public function SetFile($file = null)
+    {
+        if (is_null($file)) {
+            $this->file = ['name' => date('YmdHis'), 'part' => 1];
+        } else {
+            if (!array_key_exists("name", $file) && !array_key_exists("part", $file)) {
+                $this->file = $file['1'];
+            } else {
+                $this->file = $file;
+            }
+        }
+        return $this;
+    }
+
+
     /**
      * 备份表结构
      * @param  string  $table 表名
      * @param  integer $start 起始行数
      * @return boolean        false - 备份失败
      */
-    public function backup($table, $start)
+    public function FileBackup($table, $start)
     {
         $db = self::connect();
+
         // 备份表结构
         if (0 == $start) {
             $result = $db->query("SHOW CREATE TABLE `{$table}`");
@@ -337,8 +361,11 @@ class Backup{
             }
         }
         //备份下一表
-        return 0;
+        return true;
     }
+
+
+
     /**
      * 优化表
      * @param  String $tables 表名
@@ -363,6 +390,8 @@ class Backup{
             throw new \Exception("Please specify the table to be repaired!");
         }
     }
+
+
     /**
      * 修复表
      * @param  String $tables 表名
@@ -387,6 +416,8 @@ class Backup{
             throw new \Exception("Please specify the table to be repaired!");
         }
     }
+
+
     /**
      * 写入SQL语句
      * @param  string $sql 要写入的SQL语句
@@ -401,6 +432,8 @@ class Backup{
         $this->open($size);
         return $this->config['compress'] ? @gzwrite($this->fp, $sql) : @fwrite($this->fp, $sql);
     }
+
+
     /**
      * 打开一个卷，用于写入数据
      * @param  integer $size 写入数据的大小
@@ -428,6 +461,9 @@ class Backup{
             $this->size = filesize($filename) + $size;
         }
     }
+
+
+
     /**
      * 检查目录是否可写
      * @param  string   $path    目录
@@ -444,6 +480,8 @@ class Backup{
             return false;
         }
     }
+
+    
     /**
      * 析构方法，用于关闭文件资源
      */
@@ -451,6 +489,7 @@ class Backup{
     {
         $this->config['compress'] ? @gzclose($this->fp) : @fclose($this->fp);
     }
+
 
 
 
