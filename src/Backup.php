@@ -206,31 +206,21 @@ class Backup{
         $path = realpath($this->config['path']);
         $fileNamePath = $path.'/'.$filename;
         if (file_exists($fileNamePath)) {
-            //以只读和二进制模式打开文件   
-            $file = fopen ( $fileNamePath, "rb" ); 
-            //告诉浏览器这是一个文件流格式的文件    
-            Header ( "Content-type: application/octet-stream;charset=utf-8 " ); 
-            //请求范围的度量单位  
-            Header ( "Accept-Ranges: bytes" );  
-            //Content-Length是指定包含于请求或响应中数据的字节长度    
-            Header ( "Accept-Length: " . filesize ( $fileNamePath ) );  
+            //告诉浏览器这是一个文件流格式的文件   
+            Header ( "Content-type: application/octet-stream;charset=utf-8"); 
             //用来告诉浏览器，文件是可以当做附件被下载，下载后的文件名称为$file_name该变量的值。
-            Header ( "Content-Disposition: attachment; filename=" . $filename );    
-            //读取文件内容并直接输出到浏览器
-            while (!feof($file)) {
-                //从文件指针 handle 读取最多 length 个字节（每次输出10k）
-                echo fread($file, 10240);
-                ob_flush();
-                flush();
-            }
-            fclose ( $file ); //打开的时候要进行关闭这个文件
-            
+            Header ( "Content-Disposition: attachment; filename=" . $filename ); 
+            //请求范围的度量单位
+            Header ( "Accept-Ranges: bytes");
+            //Content-Length是指定包含于请求或响应中数据的字节长度
+            Header ( "Accept-Length: " . filesize ( $fileNamePath ) );  
+            readfile($fileNamePath);
             return true;
         } else {
             return false;
         }
     }
-
+    
 
     /***
      * 
@@ -310,13 +300,54 @@ class Backup{
     }
 
 
+    /*   
+      备份表结构
+      函数功能：把表的结构转换成为SQL   
+      函数参数：$table: 要进行提取的表名   
+      返 回 值：返回提取后的结果，SQL集合   
+      函数作者：heiyeluren   
+      */    
+    
+    public function FileBackupTable($table,$start)    
+    {
+        $db = self::connect();
+
+        // 备份表结构
+        if (0 == $start) {
+            $result = $db->query("SHOW CREATE TABLE `{$table}`");
+            $sql = "\n";
+            $sql .= "-- -----------------------------\n";
+            $sql .= "-- Table structure for `{$table}`\n";
+            $sql .= "-- -----------------------------\n";
+            $sql .= "DROP TABLE IF EXISTS `{$table}`;\n";
+            $sql .= trim($result[0]['Create Table']) . ";\n\n";
+            if (false === $this->write($sql)) {
+                return false;
+            }
+        }
+        //数据总数
+        $result = $db->query("SELECT COUNT(*) AS count FROM `{$table}`");
+        $count = $result['0']['count'];
+        //备份表数据
+        if ($count) {
+            //还有更多数据
+            if ($count > $start + 1000) {
+                //return array($start + 1000, $count);
+                return $this->FileBackupTable($table, $start + 1000);
+            }
+        }
+        //备份下一表
+        return true;
+    }
+ 
+    
     /**
-     * 备份表结构
+     * 备份表结构+数据
      * @param  string  $table 表名
      * @param  integer $start 起始行数
      * @return boolean        false - 备份失败
      */
-    public function FileBackup($table, $start)
+    public function FileBackupData($table, $start)
     {
         $db = self::connect();
 
@@ -357,7 +388,7 @@ class Backup{
             //还有更多数据
             if ($count > $start + 1000) {
                 //return array($start + 1000, $count);
-                return $this->backup($table, $start + 1000);
+                return $this->FileBackupData($table, $start + 1000);
             }
         }
         //备份下一表
