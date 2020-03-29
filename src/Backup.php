@@ -90,9 +90,6 @@ class Backup{
         return $this;
     }
 
-
-
-
     //数据类连接
     public static function connect()
     {
@@ -177,29 +174,24 @@ class Backup{
 
     /***
      * 删除备份文件
-     * 
+     * @param  string filename 文件名字
      */
     public function FileDel($filename)
     {
-        if ($time) {
-            $file = $this->getFile('time', $time);
-            array_map("unlink", $this->getFile('time', $time));
-            if (count($this->getFile('time', $time))) {
-                throw new \Exception("File {$path} deleted failed");
-            } else {
-                return $time;
-            }
-        } else {
-            throw new \Exception("{$time} Time parameter is incorrect");
+        $path = realpath($this->config['path']);
+        $fileNamePath = $path.'/'.$filename;
+        if(file_exists($fileNamePath)){
+            chmod($fileNamePath,0777);
+            unlink($fileNamePath);
+            return true;
+        }else{
+            throw new \Exception("{$filename} 404");
         }
     }
 
-
-
     /**
      * 下载备份
-     * @param string $time
-     * @return array|mixed|string
+     * @param  string filename 文件名字
      */
     public function FileDownload($filename)
     {
@@ -220,65 +212,8 @@ class Backup{
             return false;
         }
     }
-    
-
-    /***
-     * 
-     * 导入数据
-     * 
-     */
-    public function import($start)
-    {
-        $db = self::connect();
-        if ($this->config['compress']) {
-            $gz = gzopen($this->file[1], 'r');
-            $size = 0;
-        } else {
-            $size = filesize($this->file[1]);
-            $gz = fopen($this->file[1], 'r');
-        }
-        $sql = '';
-        if ($start) {
-            $this->config['compress'] ? gzseek($gz, $start) : fseek($gz, $start);
-        }
-        for ($i = 0; $i < 1000; $i++) {
-            $sql .= $this->config['compress'] ? gzgets($gz) : fgets($gz);
-            if (preg_match('/.*;$/', trim($sql))) {
-                if (false !== $db->execute($sql)) {
-                    $start += strlen($sql);
-                } else {
-                    return false;
-                }
-                $sql = '';
-            } elseif ($this->config['compress'] ? gzeof($gz) : feof($gz)) {
-                return 0;
-            }
-        }
-        return array($start, $size);
-    }
 
 
-    /**
-     * 写入初始数据
-     * @return boolean true - 写入成功，false - 写入失败
-     */
-    public function Backup_Init()
-    {
-        $sql = "-- -----------------------------\n";
-        $sql .= "-- MySQL Data Transfer \n";
-        $sql .= "-- \n";
-        $sql .= "-- Host     : " . $this->dbconfig['hostname'] . "\n";
-        $sql .= "-- Port     : " . $this->dbconfig['hostport'] . "\n";
-        $sql .= "-- Database : " . $this->dbconfig['database'] . "\n";
-        $sql .= "-- \n";
-        $sql .= "-- Part : #{$this->file['part']}\n";
-        $sql .= "-- Date : " . date("Y-m-d H:i:s") . "\n";
-        $sql .= "-- -----------------------------\n\n";
-        $sql .= "SET FOREIGN_KEY_CHECKS = 0;\n\n";
-        return $this->write($sql);
-    }
-
-    
     
     /**
      * 设置备份文件名
@@ -301,17 +236,14 @@ class Backup{
 
 
     /*   
-      备份表结构
-      函数功能：把表的结构转换成为SQL   
-      函数参数：$table: 要进行提取的表名   
-      返 回 值：返回提取后的结果，SQL集合   
-      函数作者：heiyeluren   
-      */    
-    
+    *   备份表结构
+    *   函数功能：把表的结构转换成为SQL   
+    *   函数参数：$table: 要进行提取的表名   
+    *   返 回 值：返回提取后的结果，SQL集合     
+    */
     public function FileBackupTable($table,$start)    
     {
         $db = self::connect();
-
         // 备份表结构
         if (0 == $start) {
             $result = $db->query("SHOW CREATE TABLE `{$table}`");
@@ -339,13 +271,13 @@ class Backup{
         //备份下一表
         return true;
     }
- 
     
+
     /**
      * 备份表结构+数据
      * @param  string  $table 表名
      * @param  integer $start 起始行数
-     * @return boolean        false - 备份失败
+     * @return boolean false - 备份失败
      */
     public function FileBackupData($table, $start)
     {
@@ -397,13 +329,47 @@ class Backup{
 
 
 
+    /***
+     * 导入备份
+     */
+    public function DbImport($filename)
+    {
+        try {
+            $db = self::connect();
+            $path = realpath($this->config['path']);
+            $fileNamePath = $path.'/'.$filename;
+            $sql_str='';
+            if ($this->config['compress']) {
+                $gz = gzopen($fileNamePath, 'r');
+                $buffer_size = 4096; // read 4kb at a time
+                while(!gzeof($gz)) {
+                    $sql_str.=gzread($gz, $buffer_size);
+                }
+                gzclose($gz);
+                $size = 0;
+            } else {
+                $size = filesize($fileNamePath);
+                $sql_str = file_get_contents($fileNamePath, 'r');
+            }
+            $sql_arr = explode(';'.PHP_EOL, $sql_str);
+            array_pop($sql_arr);
+            foreach ($sql_arr as $value) {
+                if(!empty($value)){
+                    $db->query($value);
+                }
+            } 
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        } 
+    }
+
     /**
      * 优化表
-     * @param  String $tables 表名
-     * @return String $tables  
+     * $tables 表名 ，支持数组
      */
-    public function optimize($tables = null)
-    {
+    public function DbOptimize($tables = null)
+    {   
         if ($tables) {
             $db = self::connect();
             if (is_array($tables)) {
@@ -412,13 +378,9 @@ class Backup{
             } else {
                 $list = $db->query("OPTIMIZE TABLE `{$tables}`");
             }
-            if ($list) {
-                return $tables;
-            } else {
-                throw new \Exception("data sheet'{$tables}'Repair mistakes please try again!");
-            }
+            return true;
         } else {
-            throw new \Exception("Please specify the table to be repaired!");
+            return false;
         }
     }
 
@@ -428,7 +390,7 @@ class Backup{
      * @param  String $tables 表名
      * @return String $tables  
      */
-    public function repair($tables = null)
+    public function DbRepair($tables = null)
     {
         if ($tables) {
             $db = self::connect();
@@ -438,17 +400,13 @@ class Backup{
             } else {
                 $list = $db->query("REPAIR TABLE `{$tables}`");
             }
-            if ($list) {
-                return $list;
-            } else {
-                throw new \Exception("data sheet'{$tables}'Repair mistakes please try again!");
-            }
+            return true;
         } else {
-            throw new \Exception("Please specify the table to be repaired!");
+            return false;
         }
     }
 
-
+    
     /**
      * 写入SQL语句
      * @param  string $sql 要写入的SQL语句
@@ -477,7 +435,6 @@ class Backup{
                 $this->config['compress'] ? @gzclose($this->fp) : @fclose($this->fp);
                 $this->fp = null;
                 $this->file['part']++;
-                session('backup_file', $this->file);
                 $this->Backup_Init();
             }
         } else {
@@ -491,6 +448,27 @@ class Backup{
             }
             $this->size = filesize($filename) + $size;
         }
+    }
+
+
+    /**
+     * 写入初始数据
+     * @return boolean true - 写入成功，false - 写入失败
+     */
+    private function Backup_Init()
+    {
+        $sql = "-- -----------------------------\n";
+        $sql .= "-- MySQL Data Transfer \n";
+        $sql .= "-- \n";
+        $sql .= "-- Host     : " . $this->dbconfig['hostname'] . "\n";
+        $sql .= "-- Port     : " . $this->dbconfig['hostport'] . "\n";
+        $sql .= "-- Database : " . $this->dbconfig['database'] . "\n";
+        $sql .= "-- \n";
+        $sql .= "-- Part : #{$this->file['part']}\n";
+        $sql .= "-- Date : " . date("Y-m-d H:i:s") . "\n";
+        $sql .= "-- -----------------------------\n\n";
+        $sql .= "SET FOREIGN_KEY_CHECKS = 0;\n\n";
+        return $this->write($sql);
     }
 
 
@@ -520,7 +498,6 @@ class Backup{
     {
         $this->config['compress'] ? @gzclose($this->fp) : @fclose($this->fp);
     }
-
 
 
 
