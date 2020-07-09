@@ -20,7 +20,7 @@ class Cos
         $this->config = $config;
     }
 
-    
+
     /**
      * @return string
      */
@@ -124,7 +124,7 @@ class Cos
      * 文件列表
      */
     public function fileList(){
-
+        
     }
 
     /**
@@ -142,9 +142,9 @@ class Cos
         $cosClient = new Client([
             'region' => 'ap-shanghai',
             'credentials'=>[
-                'appId'     => '1301318938',
-                'secretId'    => 'AKIDbz9HK8M2KYYR62pmdIkwc6OQDm15DUvY',
-                'secretKey' => 'Zv2yf7KJL8iBPbY2rSItFNo22NaF5iR4'
+                'appId'     => '',
+                'secretId'    => '',
+                'secretKey' => ''
             ]
         ]);
         try {
@@ -162,50 +162,14 @@ class Cos
      * 查看bucket以及权限
      */
     public function  buketDetail(){
-        $cosClient = new Client([
-            'region' => 'ap-shanghai',
-            'credentials'=>[
-                'appId'     => '1301318938',
-                'secretId'    => 'AKIDbz9HK8M2KYYR62pmdIkwc6OQDm15DUvY',
-                'secretKey' => 'Zv2yf7KJL8iBPbY2rSItFNo22NaF5iR4'
-            ]
-        ]);
-        try {
-            $bucket = "examplebucket-1250000000"; //存储桶名称 格式：BucketName-APPID
-            $result = $cosClient->headBucket(array(
-                'Bucket' => $bucket,
-            )); 
-            //请求成功
-            print_r($result);
-        } catch (\Exception $e) {
-            //请求失败
-            echo($e);
-        }
+       
     }    
 
     /**
      * 创建bucket
      */
     public function  buketCreat(){
-        $cosClient = new Client([
-            'region' => 'ap-shanghai',
-            'credentials'=>[
-                'appId'     => '1301318938',
-                'secretId'    => 'AKIDbz9HK8M2KYYR62pmdIkwc6OQDm15DUvY',
-                'secretKey' => 'Zv2yf7KJL8iBPbY2rSItFNo22NaF5iR4'
-            ]
-        ]);
-        try {
-            $bucket = "examplebucket-1250000000"; //存储桶名称 格式：BucketName-APPID
-            $result = $cosClient->createBucket(array(
-                'Bucket' => $bucket
-            ));
-            //请求成功
-            print_r($result);
-        } catch (\Exception $e) {
-            //请求失败
-            echo($e);
-        }
+       
     }
 
 
@@ -215,25 +179,7 @@ class Cos
      * 删除bucket
      */
     public function  buketDel(){
-        $cosClient = new Client([
-            'region' => 'ap-shanghai',
-            'credentials'=>[
-                'appId'     => '1301318938',
-                'secretId'    => 'AKIDbz9HK8M2KYYR62pmdIkwc6OQDm15DUvY',
-                'secretKey' => 'Zv2yf7KJL8iBPbY2rSItFNo22NaF5iR4'
-            ]
-        ]);
-        try {
-            $bucket = "examplebucket-1250000000"; //存储桶名称 格式：BucketName-APPID
-            $result = $cosClient->deleteBucket(array(
-                'Bucket' => $bucket,
-            )); 
-            //请求成功
-            print_r($result);
-        } catch (\Exception $e) {
-            //请求失败
-            echo($e);
-        }
+        
 
     }
 
