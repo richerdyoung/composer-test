@@ -16,11 +16,16 @@ class Cos
      */
     protected $config;
 
+     /**
+     * @var array
+     */
+    protected $client;
+
     public function __construct(array $config = []){
         $this->config = $config;
     }
 
-
+    
     /**
      * @return string
      */
@@ -53,16 +58,110 @@ class Cos
     }
 
 
-      /**
+    /**
      * @return string
      */
     public function getSecretKey(){
         return $this->config['credentials']['secretKey'] ?? null;
     }
 
-
+     /**
+     * @return array
+     */
+    public function getClient(){
+        $cosClient = new Client([
+            'region' => $this->getRegion(),
+            'credentials'=>[
+                'appId'     => $this->getAppId(),
+                'secretId'    => $this->getSecretId(),
+                'secretKey' => $this->getSecretKey(),
+            ]
+        ]);
+        return $cosClient;
+    }
     
 
+
+     /**
+     * bucket列表
+     */
+    public function  buketList(){
+        $cosClient = $this->getClient();
+        try {
+            //请求成功
+            $result = $cosClient->listBuckets()->toArray();
+            return $result;
+        } catch (\Exception $e) {
+            
+            //请求失败
+            echo($e->getMessage());
+        }
+
+    }
+
+     /**
+     * 查看bucket以及权限
+     */
+    public function  buketDetail($Name){
+        $cosClient = $this->getClient();
+        try {
+            $result = $cosClient->getBucketAcl(array(
+                'Bucket' => $Name //格式：BucketName-APPID
+            ))->toArray();
+            return $result;
+        } catch (\Exception $e) {
+            
+            //请求失败
+            echo($e->getMessage());
+        }
+
+        
+    }    
+    
+    /**
+     * 创建bucket
+     */
+    public function  buketCreat(){
+        $cosClient = $this->getClient();
+        try {
+            $result = $cosClient->createBucket(array(
+                'Bucket' => $Name //格式：BucketName-APPID
+            ))->toArray();
+            return $result;
+        } catch (\Exception $e) {
+            //请求失败
+            echo($e->getMessage());
+        }
+    }
+
+
+
+
+     /**
+     * 删除bucket
+     */
+    public function  buketDel(){
+
+      $cosClient = $this->getClient();
+
+        try {
+            $result = $cosClient->deleteBucket(array(
+                'Bucket' => $Name //格式：BucketName-APPID
+            ))->toArray();
+            return $result;
+        } catch (\Exception $e) {
+            //请求失败
+            echo($e->getMessage());
+        }
+
+
+       
+    }
+
+
+
+
+    
     /**
      * 文件上传
      */
@@ -124,7 +223,7 @@ class Cos
      * 文件列表
      */
     public function fileList(){
-        
+
     }
 
     /**
@@ -133,59 +232,6 @@ class Cos
     public function fileDel(){
 
     }
-
-
-     /**
-     * bucket列表
-     */
-    public function  buketList(){
-        $cosClient = new Client([
-            'region' => 'ap-shanghai',
-            'credentials'=>[
-                'appId'     => '',
-                'secretId'    => '',
-                'secretKey' => ''
-            ]
-        ]);
-        try {
-            //请求成功
-            $result = $cosClient->listBuckets();
-            print_r($result);
-        } catch (\Exception $e) {
-            //请求失败
-            echo($e);
-        }
-
-    }
-
-     /**
-     * 查看bucket以及权限
-     */
-    public function  buketDetail(){
-       
-    }    
-
-    /**
-     * 创建bucket
-     */
-    public function  buketCreat(){
-       
-    }
-
-
-
-
-     /**
-     * 删除bucket
-     */
-    public function  buketDel(){
-        
-
-    }
-
-
-
-
 
 
 
