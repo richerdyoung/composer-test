@@ -3,16 +3,14 @@
     "description": "composer",
     "type": "library",
     "keywords": [
-        "framework",
         "thinkphp",
-        "ORM",
-        "tpcms",
-        "cms"
+        "ORM"
     ],
     "homepage": "http://thinkphp.cn/",
     "require": {
         "php": ">=7.1.0",
-        "topthink/think-orm": "^2.0"
+        "topthink/think-orm": "^2.0",
+        "qcloud/cos-sdk-v5": ">=2.0"
     },
     "license": "MIT",
     "authors": [
@@ -29,5 +27,5 @@
     }
 
 
-
+    
 }
