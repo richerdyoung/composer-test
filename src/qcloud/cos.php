@@ -25,7 +25,7 @@ class Cos
         $this->config = $config;
     }
 
-    
+
     /**
      * @return string
      */
@@ -102,20 +102,17 @@ class Cos
      /**
      * 查看bucket以及权限
      */
-    public function  buketDetail($Name){
+    public function  buketDetail($bucket_name){
         $cosClient = $this->getClient();
         try {
             $result = $cosClient->getBucketAcl(array(
-                'Bucket' => $Name //格式：BucketName-APPID
+                'Bucket' => $bucket_name //格式：BucketName-APPID
             ))->toArray();
             return $result;
         } catch (\Exception $e) {
-            
             //请求失败
             echo($e->getMessage());
         }
-
-        
     }    
     
     /**
@@ -142,7 +139,7 @@ class Cos
      */
     public function  buketDel(){
 
-      $cosClient = $this->getClient();
+        $cosClient = $this->getClient();
 
         try {
             $result = $cosClient->deleteBucket(array(
@@ -159,9 +156,6 @@ class Cos
     }
 
 
-
-
-    
     /**
      * 文件上传
      */
@@ -218,13 +212,31 @@ class Cos
    
     }
 
-
+    
     /**
      * 文件列表
      */
-    public function fileList(){
+    public function fileList($Prefix,$Marker,$bucket_name,$MaxKeys){
+        $cosClient = $this->getClient();
+        try {
+            $result = $cosClient->listObjects(array(
+                'Bucket' => $bucket_name, 
+                'Delimiter' => '/',
+                'EncodingType' => 'url',
+                'Marker' => $Marker,      //上次列出对象的断点
+                'Prefix' => $Prefix,    //列出对象的前缀
+                'MaxKeys' => $MaxKeys
+            ))->toArray();
 
+
+        } catch (\Exception $e) {
+             //请求失败
+             echo($e->getMessage());
+        }
+        return $result;
     }
+
+
 
     /**
      * 删除文件
