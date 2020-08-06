@@ -90,14 +90,18 @@ class Cos
         try {
             //请求成功
             $result = $cosClient->listBuckets()->toArray();
-            return $result;
+            $DataList = $result['Buckets'][0]['Bucket'];
+            foreach ($DataList as $key => $value) {
+                $DataList[$key]['CreationDate'] = date('Y-m-d H:i:s', strtotime($value['CreationDate']));
+            }
+            return $DataList;
+
         } catch (\Exception $e) {
-            
             //请求失败
             echo($e->getMessage());
         }
-
     }
+
 
      /**
      * 查看bucket以及权限
@@ -108,58 +112,139 @@ class Cos
             $result = $cosClient->getBucketAcl(array(
                 'Bucket' => $bucket_name //格式：BucketName-APPID
             ))->toArray();
-            return $result;
+            $DataMes = [
+                'Owner'=>$result['Owner'],
+                'GrantsList'=>$result['Grants'][0]['Grant'],
+                'Location'=>$result['Location'],
+            ];        
+            return $DataMes;
         } catch (\Exception $e) {
             //请求失败
             echo($e->getMessage());
         }
     }    
     
+    
+
     /**
-     * 创建bucket
+     * 文件列表
      */
-    public function  buketCreat(){
-        $cosClient = $this->getClient();
-        try {
-            $result = $cosClient->createBucket(array(
-                'Bucket' => $Name //格式：BucketName-APPID
-            ))->toArray();
-            return $result;
-        } catch (\Exception $e) {
-            //请求失败
-            echo($e->getMessage());
-        }
-    }
-
-
-
-
-     /**
-     * 删除bucket
-     */
-    public function  buketDel(){
+    public function fileList($Prefix,$Marker,$BucketName,$MaxKeys){
 
         $cosClient = $this->getClient();
 
         try {
-            $result = $cosClient->deleteBucket(array(
-                'Bucket' => $Name //格式：BucketName-APPID
+
+            $TxcosResult = $cosClient->listObjects(array(
+                'Bucket' => $BucketName, 
+                'Delimiter' => '/',
+                'EncodingType' => 'url',
+                'Marker' => $Marker,      //上次列出对象的断点
+                'Prefix' => $Prefix,    //列出对象的前缀
+                'MaxKeys' => $MaxKeys
             ))->toArray();
+
+            $TxcosDomainUrl = $TxcosResult['Location'];
+            $TxcosMaxKeys = $TxcosResult['MaxKeys'];
+            $TxcosIsTruncated = $TxcosResult['IsTruncated'];
+            $TxcosMarker = $TxcosResult['Marker'];
+            $TxcosNextMarker = '';
+            if($TxcosIsTruncated == 1){
+                $TxcosNextMarker = $TxcosResult['NextMarker'];
+            }
+            $TxcosPrefix = $TxcosResult['Prefix'];
+            $BucketNameList = [
+                [
+                    'PrefixPath'=>'',
+                    'PrefixName'=>$BucketName, 
+                    'PrefixStr'=>'/',
+                ],
+            ];
+            $LastStr = substr($TxcosPrefix, -1 );
+            $DataPrefixList = [];
+            if(!empty($TxcosPrefix) &&  $LastStr ==='/'){
+                $PrefixMes = explode('/',$TxcosPrefix);
+                array_pop($PrefixMes);//剔除最后一个空元素
+                $PrefixPath = '';
+                for ($i=0; $i < count($PrefixMes); $i++) { 
+                    # code...
+                    $PrefixPath .= $PrefixMes[$i].'/';
+                    $DataPrefixList[]= [
+                        'PrefixPath'=>$PrefixPath,
+                        'PrefixName'=>$PrefixMes[$i],
+                        'PrefixStr'=>'/',
+                    ];
+                }
+                array_walk($BucketNameList,function($item) use (&$DataPrefixList) {
+                    array_unshift($DataPrefixList, $item);
+                });
+            }else{
+                $DataPrefixList = $BucketNameList;
+            }
+            
+            //文件夹
+            $FolderList=[];
+            if(isset($TxcosResult['CommonPrefixes'])   && !empty($TxcosResult['CommonPrefixes']) ){
+                $CommonPrefixes = $TxcosResult['CommonPrefixes'];
+                foreach ($CommonPrefixes as $key => $value) {
+                    # code...
+                    $FolderList[] = [
+                        'FileType'=>2,
+                        'FileKeyName'=>$value['Prefix'],
+                        'NewFileKeyName'=>$value['Prefix'],
+                        'FileSize'=>'--',
+                        'StorgeType'=>'--',
+                        'LastUpdateTime'=>'--',
+                    ];
+                }
+            }
+            //文件
+            $FileList=[];
+            if(isset($TxcosResult['Contents'])   && !empty($TxcosResult['Contents']) ){
+                $Contents = $TxcosResult['Contents'];
+                foreach ($Contents as $key => $value) {
+                    # code...
+                    $FileList[] = [
+                        'FileType'=>1,
+                        'FileKeyName'=>$value['Key'],
+                        'NewFileKeyName'=>str_replace($TxcosPrefix, '', $value['Key']),
+                        'FileSize'=>sys_GetFileSize($value['Size']),
+                        'StorgeType'=>$value['StorageClass'],
+                        'LastUpdateTime'=>date('Y-m-d H:i:s', strtotime($value['LastModified'])),
+                    ];
+                }
+            }
+            
+            $DataList  = array_merge($FolderList,$FileList);
+            $result = [
+                'TxcosDomainUrl'=>$TxcosDomainUrl,
+                'TxcosIsTruncated'=>$TxcosIsTruncated,
+                'TxcosMaxKeys'=>$TxcosMaxKeys,
+                'TxcosMarker'=>$TxcosMarker,
+                'TxcosNextMarker'=>$TxcosNextMarker,
+                'TxcosPrefix'=>$TxcosPrefix,
+                'DataPrefixList'=>$DataPrefixList,
+                'DataList'=>$DataList,
+                'TxcosResult'=>$TxcosResult,
+                
+            ];
+
             return $result;
+
         } catch (\Exception $e) {
             //请求失败
             echo($e->getMessage());
         }
-
 
        
     }
 
 
+    
     /**
      * 文件上传
      */
-    public function fileUpload($file_data,$path){
+    public function fileUpload($BucketName,$file_data,$path){
 
         $result_data = [
             'file_ext'=>'',
@@ -176,22 +261,16 @@ class Cos
         $file_name = md5(microtime()).'.'.$file_ext;
         // 文件名称
         $object = $path.'/'.$file_name;   
-        $cosClient = new Client([
-            'region' => $this->getRegion,
-            'credentials'=>[
-                'appId'     => $this->getAppId,
-                'secretId'    => $this->getSecretId,
-                'secretKey' => $this->getSecretKey
-            ]
-        ]);     
-        //bucket的命名规则为{name}-{appid} ，此处填写的存储桶名称必须为此格式
-        $bucket = $this->getBucket;
+
+        $cosClient = $this->getClient();   
+       
         try {
             $result = $cosClient->putObject([ 
-                'Bucket' => $bucket,
+                'Bucket' => $BucketName,
                 'Key' => $object,
                 'Body' => fopen($filePath, 'rb')
             ]);
+
             $result_data = [
                 'file_ext'=>$file_ext,
                 'file_path'=>'/'.$result['Key'],
@@ -206,36 +285,10 @@ class Cos
                 'file_view'=>'',
                 'file_name'=>$file_name,
             ];
-           
         }
         return $result_data;
    
     }
-
-    
-    /**
-     * 文件列表
-     */
-    public function fileList($Prefix,$Marker,$bucket_name,$MaxKeys){
-        $cosClient = $this->getClient();
-        try {
-            $result = $cosClient->listObjects(array(
-                'Bucket' => $bucket_name, 
-                'Delimiter' => '/',
-                'EncodingType' => 'url',
-                'Marker' => $Marker,      //上次列出对象的断点
-                'Prefix' => $Prefix,    //列出对象的前缀
-                'MaxKeys' => $MaxKeys
-            ))->toArray();
-
-
-        } catch (\Exception $e) {
-             //请求失败
-             echo($e->getMessage());
-        }
-        return $result;
-    }
-
 
 
     /**
