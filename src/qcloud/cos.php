@@ -1,13 +1,11 @@
 <?php
-/**
- * 腾讯云oss服务
- * 依然范儿特西
- */
 
 namespace tpcms\qcloud;
 
+use tpcms\libs\Helper;
 use Qcloud\Cos\Client;
-use think\Log;
+
+
 
 class Cos
 {
@@ -23,6 +21,7 @@ class Cos
 
     public function __construct(array $config = []){
         $this->config = $config;
+        $this->helper = new Helper();
     }
 
 
@@ -207,8 +206,8 @@ class Cos
                     $FileList[] = [
                         'FileType'=>1,
                         'FileKeyName'=>$value['Key'],
-                        'NewFileKeyName'=>str_replace($TxcosPrefix, '', $value['Key']),
-                        'FileSize'=>sys_GetFileSize($value['Size']),
+                        'NewFileKeyName'=>$value['Key'],
+                        'FileSize'=>$this->helper->GetFileSize($value['Size']),
                         'StorgeType'=>$value['StorageClass'],
                         'LastUpdateTime'=>date('Y-m-d H:i:s', strtotime($value['LastModified'])),
                     ];
@@ -290,12 +289,59 @@ class Cos
    
     }
 
+    
+    /**
+     * 下载文件
+     */
+    public function fileDownload($BucketName,$KeyName,$SaveAs){
+        $cosClient = $this->getClient();
+        try {
+            $result = $cosClient->getObject(array(
+                'Bucket' => $BucketName, 
+                'Key' => $KeyName,
+                'SaveAs' => $SaveAs,
+                /*
+                'Range' => 'bytes=0-10',
+                'ResponseCacheControl' => 'string',
+                'ResponseContentDisposition' => 'string',
+                'ResponseContentEncoding' => 'string',
+                'ResponseContentLanguage' => 'string',
+                'ResponseContentType' => 'string',
+                'ResponseExpires' => 'string',
+                */
+            ))->toArray();
+            
+            // 请求成功
+            return $result;
+
+        } catch (\Exception $e) {
+            // 请求失败
+            echo($e);
+        }
+    
+    }
+
+
 
     /**
      * 删除文件
      */
-    public function fileDel(){
+    public function fileDel($BucketName,$KeyName){
+        $cosClient = $this->getClient();
+        try {
+            $result = $cosClient->deleteObject(array(
+                'Bucket' => $BucketName, //格式：BucketName-APPID
+                'Key' => $KeyName,
+            ))->toArray();
 
+
+            // 请求成功
+            return $result;
+        } catch (\Exception $e) {
+            // 请求失败
+            echo($e);
+        }
+    
     }
 
 
