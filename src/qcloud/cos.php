@@ -89,9 +89,12 @@ class Cos
         try {
             //请求成功
             $result = $cosClient->listBuckets()->toArray();
-            $DataList = $result['Buckets'][0]['Bucket'];
-            foreach ($DataList as $key => $value) {
-                $DataList[$key]['CreationDate'] = date('Y-m-d H:i:s', strtotime($value['CreationDate']));
+            $DataList = [];
+            if(!empty($result['Buckets'][0]['Bucket'])){
+                $DataList = $result['Buckets'][0]['Bucket'];
+                foreach ($DataList as $key => $value) {
+                    $DataList[$key]['CreationDate'] = date('Y-m-d H:i:s', strtotime($value['CreationDate']));
+                }
             }
             return $DataList;
 
